@@ -1,3 +1,6 @@
+run convert_to_yolo.py to convert the dataset to yolo
+run convert_to_yolo.py to build the annotation label file
+
 run with
 python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_640.pt --hyp data/hyp.scratch
 .yaml --img 640 --batch-size 48 --epochs 150 --kpt-label

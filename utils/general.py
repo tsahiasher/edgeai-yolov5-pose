@@ -327,13 +327,17 @@ def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0, kpt_label=False):
     y[:, 2] = w * (x[:, 0] + x[:, 2] / 2) + padw  # bottom right x
     y[:, 3] = h * (x[:, 1] + x[:, 3] / 2) + padh  # bottom right y
     if kpt_label:
-        num_kpts = (x.shape[1]-4)//2
-        for kpt in range(num_kpts):
-            for kpt_instance in range(y.shape[0]):
-                if y[kpt_instance, 2 * kpt + 4]!=0:
-                    y[kpt_instance, 2*kpt+4] = w * y[kpt_instance, 2*kpt+4] + padw
-                if y[kpt_instance, 2 * kpt + 1 + 4] !=0:
-                    y[kpt_instance, 2*kpt+1+4] = h * y[kpt_instance, 2*kpt+1+4] + padh
+        kpts_x = y[:, 4::2]
+        kpts_y = y[:, 5::2]
+        
+        valid_x = kpts_x != 0
+        valid_y = kpts_y != 0
+        
+        kpts_x[valid_x] = w * kpts_x[valid_x] + padw
+        kpts_y[valid_y] = h * kpts_y[valid_y] + padh
+        
+        y[:, 4::2] = kpts_x
+        y[:, 5::2] = kpts_y
     return y
 
 
@@ -490,7 +494,9 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
     if nc is None:
-        nc = prediction.shape[2] - 5  if not kpt_label else prediction.shape[2] - 56 # number of classes
+        # FIX: Dynamically subtract the keypoint channels (x, y, conf) instead of hardcoding 56
+        nc = prediction.shape[2] - 5 if not kpt_label else prediction.shape[2] - 5 - (3 * nkpt)
+        
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Settings
@@ -503,10 +509,12 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     merge = False  # use merge-NMS
 
     t = time.time()
-    output = [torch.zeros((0,6), device=prediction.device)] * prediction.shape[0]
+    
+    # FIX: Initialize the empty tensor with the correct number of channels to prevent crashing on empty images
+    out_channels = 6 if not kpt_label else 6 + (3 * nkpt)
+    output = [torch.zeros((0, out_channels), device=prediction.device)] * prediction.shape[0]
+    
     for xi, x in enumerate(prediction):  # image index, image inference
-        # Apply constraints
-        # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
         x = x[xc[xi]]  # confidence
 
         # Cat apriori labels if autolabelling
@@ -530,25 +538,25 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
-            x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            i, j = (x[:, 5:5+nc] > conf_thres).nonzero(as_tuple=False).T
+            if not kpt_label:
+                x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
+            else:
+                kpts = x[i, 5+nc:]
+                x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float(), kpts), 1)
         else:  # best class only
             if not kpt_label:
-                conf, j = x[:, 5:].max(1, keepdim=True)
+                conf, j = x[:, 5:5+nc].max(1, keepdim=True)
                 x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
             else:
-                kpts = x[:, 6:]
-                conf, j = x[:, 5:6].max(1, keepdim=True)
+                # FIX: Slice keypoints dynamically using `nc` to avoid locking to 1 class
+                kpts = x[:, 5+nc:]
+                conf, j = x[:, 5:5+nc].max(1, keepdim=True)
                 x = torch.cat((box, conf, j.float(), kpts), 1)[conf.view(-1) > conf_thres]
-
 
         # Filter by class
         if classes is not None:
             x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
-
-        # Apply finite constraint
-        # if not torch.isfinite(x).all():
-        #     x = x[torch.isfinite(x).all(1)]
 
         # Check shape
         n = x.shape[0]  # number of boxes
@@ -564,7 +572,6 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
-            # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
             iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
             weights = iou * scores[None]  # box weights
             x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
@@ -580,34 +587,41 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
 
 def non_max_suppression_export(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
-                        kpt_label=True, nc=None, labels=()):
-    """Runs Non-Maximum Suppression (NMS) on inference results
-
-    Returns:
-         list of detections, on (n,6) tensor per image [xyxy, conf, cls]
-    """
+                        kpt_label=True, nc=None, nkpt=None, labels=()):
     if nc is None:
-        nc = prediction.shape[2] - 5  if not kpt_label else prediction.shape[2] - 56 # number of classes
+        nc = prediction.shape[2] - 5 if not kpt_label else prediction.shape[2] - 5 - (3 * nkpt)
 
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
-    xc = prediction[..., 4] > conf_thres  # candidates
-    output = [torch.zeros((0, 57), device=prediction.device)] * prediction.shape[0]
-    for xi, x in enumerate(prediction):  # image index, image inference
-        x = x[xc[xi]]  # confidence
-        # Compute conf
-        cx, cy, w, h = x[:,0:1], x[:,1:2], x[:,2:3], x[:,3:4]
+    min_wh, max_wh = 2, 4096
+    xc = prediction[..., 4] > conf_thres
+    
+    out_channels = 6 if not kpt_label else 6 + (3 * nkpt)
+    output = [torch.zeros((0, out_channels), device=prediction.device)] * prediction.shape[0]
+    
+    for xi, x in enumerate(prediction):
+        x = x[xc[xi]]
+        
+        cx, cy, w, h = x[:, 0:1], x[:, 1:2], x[:, 2:3], x[:, 3:4]
         obj_conf = x[:, 4:5]
         cls_conf = x[:, 5:5+nc]
-        kpts = x[:, 6:]
-        cls_conf = obj_conf * cls_conf  # conf = obj_conf * cls_conf
-        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
+        
+        if kpt_label:
+            kpts = x[:, 5+nc:]
+            
+        cls_conf = obj_conf * cls_conf
+        
         box = xywh2xyxy_export(cx, cy, w, h)
         conf, j = cls_conf.max(1, keepdim=True)
-        x = torch.cat((box, conf, j.float(), kpts), 1)[conf.view(-1) > conf_thres]
-        c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
-        boxes, scores = x[:, :4] +c , x[:, 4]  # boxes (offset by class), scores
-        i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+        
+        if kpt_label:
+            x = torch.cat((box, conf, j.float(), kpts), 1)[conf.view(-1) > conf_thres]
+        else:
+            x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
+            
+        c = x[:, 5:6] * (0 if agnostic else max_wh)
+        boxes, scores = x[:, :4] + c, x[:, 4]
+        i = torchvision.ops.nms(boxes, scores, iou_thres)
         output[xi] = x[i]
+        
     return output
 
 

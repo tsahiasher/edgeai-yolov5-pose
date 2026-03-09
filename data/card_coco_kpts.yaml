@@ -1,0 +1,13 @@
+# card_coco_kpts.yaml
+train: ../crop-dataset-eitan-yolo/images/train
+val: ../crop-dataset-eitan-yolo/images/val
+
+nc: 1
+names: ['id_card']
+kpt_shape: [4, 3]
+
+# Required for xtcocotools evaluation in test.py
+nkpt: 4
+sigmas: [0.5, 0.5, 0.5, 0.5] 
+flip_index: [1, 0, 3, 2] 
+val_json: ../crop-dataset-eitan-yolo/annotations/val.json

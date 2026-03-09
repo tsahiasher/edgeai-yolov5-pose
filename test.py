@@ -77,11 +77,14 @@ def test(data,
     # Configure
     model.eval()
     model.model[-1].flip_test = False
-    model.model[-1].flip_index = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+    
     if isinstance(data, str):
         is_coco = data.endswith('coco.yaml') or data.endswith('coco_kpts.yaml')
         with open(data) as f:
             data = yaml.safe_load(f)
+            
+    nkpt = data.get('nkpt', model.yaml.get('nkpt', 0))
+    model.model[-1].flip_index = data.get('flip_index', list(range(nkpt)))
     check_dataset(data)  # check
     nc = 1 if single_cls else int(data['nc'])  # number of classes
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
@@ -327,25 +330,28 @@ def test(data,
                 print(f'pycocotools unable to run: {e}')
 
         elif save_json_kpt:
-            anno_json = '../coco/annotations/person_keypoints_val2017.json'  # annotations json
+            # FIX: Remove hardcoded COCO path. Read from your custom data.yaml
+            anno_json = data.get('val_json', '../coco/annotations/person_keypoints_val2017.json') 
             print('\nEvaluating xtcocotools mAP... saving %s...' % pred_json)
 
-            try:  # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-                # from pycocotools.coco import COCO
-                # from pycocotools.cocoeval import COCOeval
-
+            try:  
                 from xtcocotools.coco import COCO
                 from xtcocotools.cocoeval import COCOeval
 
-                anno = COCO(anno_json)  # init annotations api
-                pred = anno.loadRes(pred_json)  # init predictions api
-                eval = COCOeval(anno, pred, 'keypoints', use_area=True) #,
+                anno = COCO(anno_json)  
+                pred = anno.loadRes(pred_json)  
+                eval = COCOeval(anno, pred, 'keypoints', use_area=True) 
+                
+                # FIX: Override default COCO sigmas with your custom 4-keypoint sigmas
+                if 'sigmas' in data:
+                    eval.params.kpt_oks_sigmas = np.array(data['sigmas'])
+                    
                 if is_coco:
-                    eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  # image IDs to evaluate
+                    eval.params.imgIds = [int(Path(x).stem) for x in dataloader.dataset.img_files]  
                 eval.evaluate()
                 eval.accumulate()
                 eval.summarize()
-                map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
+                map, map50 = eval.stats[:2]  
             except Exception as e:
                 print(f'xtcocotools unable to run: {e}')
 

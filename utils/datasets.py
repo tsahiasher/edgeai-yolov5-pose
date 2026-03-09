@@ -658,14 +658,22 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         n = len(shapes) // 4
         img4, label4, path4, shapes4 = [], [], path[:n], shapes[:n]
 
-        ho = torch.tensor([[0., 0, 0, 1, 0, 0]])
-        wo = torch.tensor([[0., 0, 1, 0, 0, 0]])
-        s = torch.tensor([[1, 1, .5, .5, .5, .5]])  # scale
-        for i in range(n):  # zidane torch.zeros(16,3,720,1280)  # BCHW
+        # FIX: Dynamically size offset tensors to prevent broadcasting crashes 
+        # when label dimensions exceed 6 (e.g., 14 cols for 4 keypoints)
+        num_cols = label[0].shape[1]
+        ho = torch.zeros((1, num_cols))
+        wo = torch.zeros((1, num_cols))
+        s = torch.zeros((1, num_cols))
+        
+        ho[0, 3], wo[0, 2] = 1., 1.
+        s[0, :6] = torch.tensor([1, 1, .5, .5, .5, .5])
+        if num_cols > 6:
+            s[0, 6:] = 0.5
+
+        for i in range(n):  
             i *= 4
             if random.random() < 0.5:
-                im = F.interpolate(img[i].unsqueeze(0).float(), scale_factor=2., mode='bilinear', align_corners=False)[
-                    0].type(img[i].type())
+                im = F.interpolate(img[i].unsqueeze(0).float(), scale_factor=2., mode='bilinear', align_corners=False)[0].type(img[i].type())
                 l = label[i]
             else:
                 im = torch.cat((torch.cat((img[i], img[i + 1]), 1), torch.cat((img[i + 2], img[i + 3]), 1)), 2)
@@ -674,7 +682,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             label4.append(l)
 
         for i, l in enumerate(label4):
-            l[:, 0] = i  # add target image index for build_targets()
+            l[:, 0] = i  
 
         return torch.stack(img4, 0), torch.cat(label4, 0), path4, shapes4
 
@@ -1006,7 +1014,20 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
         targets = targets[i]
         targets[:, 1:5] = new[i]
         if kpt_label:
-            targets[:, 5:] = xy_kpts[i]
+            num_kpts = (targets.shape[1] - 5) // 2
+            xy_kpts = np.ones((n * num_kpts, 3))
+            xy_kpts[:, :2] = targets[:, 5:].reshape(n * num_kpts, 2)
+            xy_kpts = xy_kpts @ M.T 
+            xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 2 * num_kpts)
+            
+            # FIX: Check pairs together to prevent erasing valid keypoints on the image border (x=0 or y=0).
+            # Previous logic (xy_kpts[targets[:,5:]==0] = 0) erased valid edge points element-wise.
+            zero_mask = (targets[:, 5::2] == 0) & (targets[:, 6::2] == 0)
+            zero_mask = np.repeat(zero_mask, 2, axis=1)
+            xy_kpts[zero_mask] = 0
+            
+            x_kpts = xy_kpts[:, list(range(0,2 * num_kpts,2))]
+            y_kpts = xy_kpts[:, list(range(1,2 * num_kpts,2))]
 
     return img, targets
 
