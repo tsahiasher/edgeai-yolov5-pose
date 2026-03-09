@@ -209,11 +209,12 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
             labels = image_targets.shape[1] == 40 if kpt_label else image_targets.shape[1] == 6   # labels if no conf column
             conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
             if kpt_label:
-                if conf is None:
-                    kpts = image_targets[:, 6:].T   #kpts for GT
-                else:
-                    kpts = image_targets[:, 7:].T    #kpts for prediction
+                labels = image_targets.shape[1] == 14
+                conf = None if labels else image_targets[:, 6]
+                kpts = image_targets[:, 6:].T if labels else image_targets[:, 7:].T
             else:
+                labels = image_targets.shape[1] == 6
+                conf = None if labels else image_targets[:, 6]
                 kpts = None
 
             if boxes.shape[1]:

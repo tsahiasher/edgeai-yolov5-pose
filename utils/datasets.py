@@ -515,7 +515,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
                 else:
                     nm += 1  # label missing
-                    l = np.zeros((0, 39), dtype=np.float32) if kpt_label else np.zeros((0, 5), dtype=np.float32)
+                    l = np.zeros((0, 13), dtype=np.float32) if kpt_label else np.zeros((0, 5), dtype=np.float32)
 
                 x[im_file] = [l, shape, segments]
             except Exception as e:
@@ -616,6 +616,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     labels[:, 2] = 1 - labels[:, 2]
                     if self.kpt_label:
                         labels[:, 6::2]= (1-labels[:, 6::2])*(labels[:, 6::2]!=0)
+                        flip_index_ud = [3, 2, 1, 0]
+                        labels[:, 5:] = np.concatenate([labels[:, 5 + 2 * i: 5 + 2 * (i + 1)] for i in flip_index_ud],axis=1)
 
             # flip left-right
             if random.random() < hyp['fliplr']:
@@ -984,8 +986,9 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
             new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
             new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
             if kpt_label:
-                xy_kpts = np.ones((n * 4, 3))
-                xy_kpts[:, :2] = targets[:,5:].reshape(n*4, 2)  #num_kpt is hardcoded to 4
+                num_kpts = (targets.shape[1] - 5) // 2
+                xy_kpts = np.ones((n * num_kpts, 3))
+                xy_kpts[:, :2] = targets[:, 5:].reshape(n * num_kpts, 2)
                 xy_kpts = xy_kpts @ M.T # transform
                 num_kpts = (targets.shape[1] - 5) // 2
                 xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 2 * num_kpts)
