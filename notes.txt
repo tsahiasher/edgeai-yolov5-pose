@@ -1,0 +1,5 @@
+run with
+python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_640.pt --hyp data/hyp.scratch
+.yaml --img 640 --batch-size 48 --epochs 150 --kpt-label
+
+use Yolov5s6_pose_640 model copy to weights. download from  http://software-dl.ti.com/jacinto7/esd/modelzoo/gplv3/08_02_00_11/edgeai-yolov5/pretrained_models/checkpoints/keypoint/coco/edgeai-yolov5/other/best_models/yolov5s6_640_60p7_85p3_kpts_head_6x_dwconv_3x3_lr_0p01/weights/last.pt 
