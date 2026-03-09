@@ -361,7 +361,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.stride = stride
         self.path = path
         self.kpt_label = kpt_label
-        self.flip_index = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+        self.flip_index = [1, 0, 3, 2]
 
         try:
             f = []  # image files
@@ -395,7 +395,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.label_files = img2label_paths(self.img_files)  # labels
         cache_path = (p if p.is_file() else Path(self.label_files[0]).parent).with_suffix('.cache')  # cached labels
         if cache_path.is_file():
-            cache, exists = torch.load(cache_path), True  # load
+            cache, exists = torch.load(cache_path, weights_only=False), True  # load
             if cache['hash'] != get_hash(self.label_files + self.img_files) or 'version' not in cache:  # changed
                 cache, exists = self.cache_labels(cache_path, prefix, self.kpt_label), False  # re-cache
         else:
@@ -421,7 +421,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 x[:, 0] = 0
 
         n = len(shapes)  # number of images
-        bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
+        bi = np.floor(np.arange(n) / batch_size).astype(np.int32)  # batch index
         nb = bi[-1] + 1  # number of batches
         self.batch = bi  # batch index of image
         self.n = n
@@ -449,9 +449,9 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
             if not tidl_load:
-                self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
+                self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int32) * stride
             else:
-                self.batch_shapes = (np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
+                self.batch_shapes = (np.array(shapes) * img_size / stride + pad).astype(np.int32) * stride
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         self.imgs = [None] * n
         if cache_images:
@@ -493,16 +493,17 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     if len(l):
                         assert (l >= 0).all(), 'negative labels'
                         if kpt_label:
-                            assert l.shape[1] == 56, 'labels require 56 columns each'
+                            assert l.shape[1] >= 8, 'labels require at least 8 columns each'
+                            assert (l.shape[1] - 5) % 3 == 0, 'keypoint labels must be class box and x y v triplets'
                             assert (l[:, 5::3] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
                             assert (l[:, 6::3] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
-                            # print("l shape", l.shape)
-                            kpts = np.zeros((l.shape[0], 39))
+                            nkpt = (l.shape[1] - 5) // 3
+                            kpts = np.zeros((l.shape[0], 5 + 2 * nkpt), dtype=np.float32)
                             for i in range(len(l)):
-                                kpt = np.delete(l[i,5:], np.arange(2, l.shape[1]-5, 3))  #remove the occlusion paramater from the GT
+                                kpt = np.delete(l[i, 5:], np.arange(2, l.shape[1] - 5, 3))
                                 kpts[i] = np.hstack((l[i, :5], kpt))
                             l = kpts
-                            assert l.shape[1] == 39, 'labels require 39 columns each after removing occlusion paramater'
+                            assert l.shape[1] == 5 + 2 * nkpt, 'invalid keypoint label width after removing visibility'
                         else:
                             assert l.shape[1] == 5, 'labels require 5 columns each'
                             assert (l[:, 1:5] <= 1).all(), 'non-normalized or out of bounds coordinate labels'
@@ -510,7 +511,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                         assert np.unique(l, axis=0).shape[0] == l.shape[0], 'duplicate labels'
                     else:
                         ne += 1  # label empty
-                        l = np.zeros((0, 39), dtype=np.float32) if kpt_label else np.zeros((0, 5), dtype=np.float32)
+                        l = np.zeros((0, 13), dtype=np.float32) if kpt_label else np.zeros((0, 5), dtype=np.float32)
 
                 else:
                     nm += 1  # label missing
@@ -983,18 +984,19 @@ def random_perspective(img, targets=(), segments=(), degrees=10, translate=.1, s
             new[:, [0, 2]] = new[:, [0, 2]].clip(0, width)
             new[:, [1, 3]] = new[:, [1, 3]].clip(0, height)
             if kpt_label:
-                xy_kpts = np.ones((n * 17, 3))
-                xy_kpts[:, :2] = targets[:,5:].reshape(n*17, 2)  #num_kpt is hardcoded to 17
+                xy_kpts = np.ones((n * 4, 3))
+                xy_kpts[:, :2] = targets[:,5:].reshape(n*4, 2)  #num_kpt is hardcoded to 4
                 xy_kpts = xy_kpts @ M.T # transform
-                xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 34)  # perspective rescale or affine
+                num_kpts = (targets.shape[1] - 5) // 2
+                xy_kpts = (xy_kpts[:, :2] / xy_kpts[:, 2:3] if perspective else xy_kpts[:, :2]).reshape(n, 2 * num_kpts)
                 xy_kpts[targets[:,5:]==0] = 0
-                x_kpts = xy_kpts[:, list(range(0,34,2))]
-                y_kpts = xy_kpts[:, list(range(1,34,2))]
+                x_kpts = xy_kpts[:, list(range(0,2 * num_kpts,2))]
+                y_kpts = xy_kpts[:, list(range(1,2 * num_kpts,2))]
 
                 x_kpts[np.logical_or.reduce((x_kpts < 0, x_kpts > width, y_kpts < 0, y_kpts > height))] = 0
                 y_kpts[np.logical_or.reduce((x_kpts < 0, x_kpts > width, y_kpts < 0, y_kpts > height))] = 0
-                xy_kpts[:, list(range(0, 34, 2))] = x_kpts
-                xy_kpts[:, list(range(1, 34, 2))] = y_kpts
+                xy_kpts[:, list(range(0, 2 * num_kpts, 2))] = x_kpts
+                xy_kpts[:, list(range(1, 2 * num_kpts, 2))] = y_kpts
 
         # filter candidates
         i = box_candidates(box1=targets[:, 1:5].T * s, box2=new.T, area_thr=0.01 if use_segments else 0.10)
@@ -1103,7 +1105,7 @@ def extract_boxes(path='../coco128/'):  # from utils.datasets import *; extract_
                     b = x[1:] * [w, h, w, h]  # box
                     # b[2:] = b[2:].max()  # rectangle to square
                     b[2:] = b[2:] * 1.2 + 3  # pad
-                    b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int)
+                    b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int32)
 
                     b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
                     b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
