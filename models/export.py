@@ -66,7 +66,7 @@ if __name__ == '__main__':
                 m.act = SiLU()
         # elif isinstance(m, models.yolo.Detect):
         #     m.forward = m.forward_export  # assign forward (optional)
-    model.model[-1].export = not (opt.grid or opt.export_nms) # set Detect() layer grid export
+    model.model[-1].export = False #not (opt.grid or opt.export_nms) # set Detect() layer grid export
     for _ in range(2):
         y = model(img)  # dry runs
     output_names = None
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         print(f'\n{prefix} starting export with torch {torch.__version__}...')
         f = opt.weights.replace('.pt', '.torchscript.pt')  # filename
         ts = torch.jit.trace(model, img, strict=False)
-        ts = optimize_for_mobile(ts)  # https://pytorch.org/tutorials/recipes/script_optimized.html
+        #ts = optimize_for_mobile(ts)  # https://pytorch.org/tutorials/recipes/script_optimized.html
         ts.save(f)
         print(f'{prefix} export success, saved as {f} ({file_size(f):.1f} MB)')
     except Exception as e:
