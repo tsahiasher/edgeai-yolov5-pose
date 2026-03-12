@@ -6,7 +6,6 @@ python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml 
 
 python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 150 --kpt-label
 
-
 step 1
 python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 50 --name step1_960_sigma_0.5 --kpt-label
 
@@ -21,9 +20,13 @@ change hyp.scratch.yaml to hyp.finetune.yaml and update:
 lr0: 0.001
 lrf: 0.01
 box: 0.10
-kpt: 2.0
+kpt: 0.02
 cls: 0.5
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_sigma_0.05/weights/best.p --hyp data/hyp.finetune.yaml --img-size 960 --batch-size 16 --epochs 100 --name step3_960_sigma_0.01 --kpt-label
+comment and uncomment lines in loss.py and test.py
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_960_sigma_0.05/weights/best.p --hyp data/hyp.finetune.yaml --img-size 960 --batch-size 16 --epochs 100 --name step3_960_sigma_0.01 --kpt-label
+
+For 640 use step 3 of 960 and repeat
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step3_960_sigma_0.01/weights/best.p --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 100 --name step3_640_sigma_0.01 --kpt-label
 
 
 use Yolov5s6_pose_640 model copy to weights. download from  http://software-dl.ti.com/jacinto7/esd/modelzoo/gplv3/08_02_00_11/edgeai-yolov5/pretrained_models/checkpoints/keypoint/coco/edgeai-yolov5/other/best_models/yolov5s6_640_60p7_85p3_kpts_head_6x_dwconv_3x3_lr_0p01/weights/last.pt 

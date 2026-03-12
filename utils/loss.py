@@ -117,7 +117,7 @@ class ComputeLoss:
         device = targets.device
         lcls, lbox, lobj, lkpt, lkptv = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
         
-        sigmas = torch.tensor([5.0, 5.0, 5.0, 5.0], device=device) / 10.0
+        sigmas = torch.tensor([0.5, 0.5, 0.5, 0.5], device=device)
         
         tcls, tbox, tkpt, indices, anchors = self.build_targets(p, targets)  
 
@@ -143,10 +143,16 @@ class ComputeLoss:
                     kpt_mask = (tkpt[i][:, 0::2] != 0).float()
                     lkptv += self.BCEkptv(pkpt_score, kpt_mask)
                     
+                    # comment the next 4 lines in step 3
                     d = (pkpt_x - tkpt[i][:, 0::2])**2 + (pkpt_y - tkpt[i][:, 1::2])**2
                     s = torch.prod(tbox[i][:, -2:], dim=1, keepdim=True).clamp(min=1e-3)
                     oks = torch.exp(-d / (s * (4 * sigmas**2) + 1e-9))
                     lkpt += ((1 - oks) * kpt_mask).mean()
+
+                    # uncomment in step 3
+                    # dx = torch.abs(pkpt_x - tkpt[i][:, 0::2])
+                    # dy = torch.abs(pkpt_y - tkpt[i][:, 1::2])
+                    # lkpt += ((dx + dy) * kpt_mask).mean()
 
                 tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.dtype)  
 
