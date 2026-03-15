@@ -2,6 +2,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from utils.general import bbox_iou
 from utils.torch_utils import is_parallel
@@ -117,7 +118,7 @@ class ComputeLoss:
         device = targets.device
         lcls, lbox, lobj, lkpt, lkptv = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
         
-        sigmas = torch.tensor([0.5, 0.5, 0.5, 0.5], device=device)
+        sigmas = torch.tensor([0.1, 0.1, 0.1, 0.1], device=device)
         
         tcls, tbox, tkpt, indices, anchors = self.build_targets(p, targets)  
 
@@ -140,7 +141,7 @@ class ComputeLoss:
                     pkpt_y = ps[:, 7::3] * 2. - 0.5
                     pkpt_score = ps[:, 8::3]
                     
-                    kpt_mask = (tkpt[i][:, 0::2] != 0).float()
+                    kpt_mask = ((tkpt[i][:, 0::2] != 0) | (tkpt[i][:, 1::2] != 0)).float()
                     lkptv += self.BCEkptv(pkpt_score, kpt_mask)
                     
                     # comment the next 4 lines in step 3
@@ -149,7 +150,14 @@ class ComputeLoss:
                     oks = torch.exp(-d / (s * (4 * sigmas**2) + 1e-9))
                     lkpt += ((1 - oks) * kpt_mask).mean()
 
-                    # uncomment in step 3
+                    # Pick L1 or Smooth L1 and uncomment in step 3
+                    # Smooth L1 Loss
+                    # loss_x = F.smooth_l1_loss(pkpt_x, tkpt[i][:, 0::2], reduction='none', beta=1.0)
+                    # loss_y = F.smooth_l1_loss(pkpt_y, tkpt[i][:, 1::2], reduction='none', beta=1.0)
+                    # lkpt += ((loss_x + loss_y) * kpt_mask).mean()
+                    
+                    # L1 loss
+                    # lkpt += ((loss_x + loss_y) * kpt_mask).mean()
                     # dx = torch.abs(pkpt_x - tkpt[i][:, 0::2])
                     # dy = torch.abs(pkpt_y - tkpt[i][:, 1::2])
                     # lkpt += ((dx + dy) * kpt_mask).mean()

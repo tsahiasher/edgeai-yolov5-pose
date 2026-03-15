@@ -238,21 +238,21 @@ def test(data,
                     scale_coords(img[si].shape[1:], tkpt, shapes[si][0], shapes[si][1], kpt_label=kpt_label)  # native-space labels
                     # uncomment in step 3
                     # if len(predn):
-                    #     iou = box_iou(tbox, predn[:, :4])
-                    #     best_ious, best_preds = iou.max(1)
-                    #     
-                    #     for t_idx, p_idx in enumerate(best_preds):
-                    #         if best_ious[t_idx] > 0.5: 
-                    #             pk = predn[p_idx, 6:]
-                    #             tk = tkpt[t_idx]
-                    #             
-                    #             dx = pk[0::3] - tk[0::2]
-                    #             dy = pk[1::3] - tk[1::2]
-                    #             
-                    #             vis = (tk[0::2] != 0) | (tk[1::2] != 0)
-                    #             if vis.any():
-                    #                 err = torch.sqrt(dx[vis]**2 + dy[vis]**2)
-                    #                 mpe_list.append(err.mean().item())
+                        # iou = box_iou(tbox, predn[:, :4])
+                        # best_ious, best_preds = iou.max(1)
+                        
+                        # for t_idx, p_idx in enumerate(best_preds):
+                            # if best_ious[t_idx] > 0.5: 
+                                # pk = predn[p_idx, 6:]
+                                # tk = tkpt[t_idx]
+                                
+                                # dx = pk[0::3] - tk[0::2]
+                                # dy = pk[1::3] - tk[1::2]
+                                
+                                # vis = (tk[0::2] != 0) | (tk[1::2] != 0)
+                                # if vis.any():
+                                    # err = torch.sqrt(dx[vis]**2 + dy[vis]**2)
+                                    # mpe_list.append(err.mean().item())
                                     
                 if plots:
                     confusion_matrix.process_batch(predn, torch.cat((labels[:, 0:1], tbox), 1))

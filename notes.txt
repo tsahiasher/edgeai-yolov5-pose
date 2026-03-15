@@ -2,16 +2,16 @@ run convert_to_yolo.py to convert the dataset to yolo
 run convert_to_yolo.py to build the annotation label file
 
 run with
-python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_640.pt --hyp data/hyp.scratch.yaml --img 640 --batch-size 48 --epochs 150 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_640.pt --hyp data/hyp.scratch.yaml --img 640 --batch-size 48 --epochs 150 --kpt-label
 
-python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 150 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 150 --kpt-label
 
 step 1
-python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 50 --name step1_960_sigma_0.5 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 50 --name step1_960_sigma_0.5 --kpt-label
 
 step 2
-change sigmas in loss.py to torch.tensor([0.05, 0.05, 0.05, 0.05]
-and in data/card_coco_kpts.yaml to sigmas: [0.05, 0.05, 0.05, 0.05]
+change sigmas in loss.py from 0.1 to torch.tensor([0.05, 0.05, 0.05, 0.05]
+and in data/card_coco_kpts.yaml from 0.1 to sigmas: [0.05, 0.05, 0.05, 0.05]
 python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step1_960_sigma_0.5/weights/best.pt --hyp data/hyp.scratch.yaml --img-size 960 --batch-size 16 --epochs 100 --name step2_960_sigma_0.05 --kpt-label
 
 step 3
@@ -28,6 +28,11 @@ python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.
 For 640 use step 3 of 960 and repeat
 python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step3_960_sigma_0.01/weights/best.p --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 100 --name step3_640_sigma_0.01 --kpt-label
 
+Changes to loss in step 3
+=========================
+change OKS to L1.
+OKS - Object Keypoint Similarity - calculates an exponential similarity score between 0 and 1, factoring in the Euclidean distance, the bounding box scale (s), and a per-keypoint variance constant (σ). The loss is minimized by maximizing the similarity. It learns proportional, scale-invariant correctness. The gradient is dynamic. If a prediction is extremely far from the target relative to the σ tolerance, the exponential term evaluates to 0, the loss plateaus at 1.0, and the gradient vanishes (0). It only provides strong corrective gradients when the prediction enters the defined localized catchment area. So the loss is effective only when the prediction is close to the target. used for subjects with high deformation (human pose, hands, animals).
+L1 loss - abs delta x+ abs delta y, the gradient (derivative) is +-1
 
 use Yolov5s6_pose_640 model copy to weights. download from  http://software-dl.ti.com/jacinto7/esd/modelzoo/gplv3/08_02_00_11/edgeai-yolov5/pretrained_models/checkpoints/keypoint/coco/edgeai-yolov5/other/best_models/yolov5s6_640_60p7_85p3_kpts_head_6x_dwconv_3x3_lr_0p01/weights/last.pt 
 
