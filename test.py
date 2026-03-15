@@ -110,7 +110,9 @@ def test(data,
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
-    #jdict_kpt = [] if kpt_label else None
+    # uncomment in step 3
+    # mpe_list = []
+    jdict_kpt = [] if kpt_label else None
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
         if dump_img:
@@ -234,7 +236,24 @@ def test(data,
                 if kpt_label:
                     tkpt = labels[:, 5:]
                     scale_coords(img[si].shape[1:], tkpt, shapes[si][0], shapes[si][1], kpt_label=kpt_label)  # native-space labels
-
+                    # uncomment in step 3
+                    # if len(predn):
+                    #     iou = box_iou(tbox, predn[:, :4])
+                    #     best_ious, best_preds = iou.max(1)
+                    #     
+                    #     for t_idx, p_idx in enumerate(best_preds):
+                    #         if best_ious[t_idx] > 0.5: 
+                    #             pk = predn[p_idx, 6:]
+                    #             tk = tkpt[t_idx]
+                    #             
+                    #             dx = pk[0::3] - tk[0::2]
+                    #             dy = pk[1::3] - tk[1::2]
+                    #             
+                    #             vis = (tk[0::2] != 0) | (tk[1::2] != 0)
+                    #             if vis.any():
+                    #                 err = torch.sqrt(dx[vis]**2 + dy[vis]**2)
+                    #                 mpe_list.append(err.mean().item())
+                                    
                 if plots:
                     confusion_matrix.process_batch(predn, torch.cat((labels[:, 0:1], tbox), 1))
 
@@ -285,6 +304,10 @@ def test(data,
     pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
 
+    # uncomment in step 3
+    # epoch_mpe = np.mean(mpe_list) if len(mpe_list) else 0.0
+    # print(f"Mean Pixel Error (MPE): {epoch_mpe:.2f} pixels")
+    
     # Print results per class
     if (verbose or (nc < 50 and not training)) and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
