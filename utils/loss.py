@@ -144,13 +144,13 @@ class ComputeLoss:
                     kpt_mask = ((tkpt[i][:, 0::2] != 0) | (tkpt[i][:, 1::2] != 0)).float()
                     lkptv += self.BCEkptv(pkpt_score, kpt_mask)
                     
-                    # comment the next 4 lines in step 3
+                    # comment the next 4 lines in step 2
                     d = (pkpt_x - tkpt[i][:, 0::2])**2 + (pkpt_y - tkpt[i][:, 1::2])**2
                     s = torch.prod(tbox[i][:, -2:], dim=1, keepdim=True).clamp(min=1e-3)
                     oks = torch.exp(-d / (s * (4 * sigmas**2) + 1e-9))
                     lkpt += ((1 - oks) * kpt_mask).mean()
 
-                    # Pick L1 or Smooth L1 and uncomment in step 3
+                    # Pick L1 or Smooth L1 and uncomment in step 2
                     # Smooth L1 Loss
                     # loss_x = F.smooth_l1_loss(pkpt_x, tkpt[i][:, 0::2], reduction='none', beta=1.0)
                     # loss_y = F.smooth_l1_loss(pkpt_y, tkpt[i][:, 1::2], reduction='none', beta=1.0)

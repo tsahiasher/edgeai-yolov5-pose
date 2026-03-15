@@ -7,15 +7,10 @@ python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.
 python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 150 --kpt-label
 
 step 1
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 50 --name step1_960_sigma_0.5 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights weights/yolov5s6_pose_960.pt --hyp data/hyp.scratch.yaml --img 960 --batch-size 16 --epochs 50 --name step1_960_oks_sigma_0.1 --kpt-label
 
 step 2
-change sigmas in loss.py from 0.1 to torch.tensor([0.05, 0.05, 0.05, 0.05]
-and in data/card_coco_kpts.yaml from 0.1 to sigmas: [0.05, 0.05, 0.05, 0.05]
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step1_960_sigma_0.5/weights/best.pt --hyp data/hyp.scratch.yaml --img-size 960 --batch-size 16 --epochs 100 --name step2_960_sigma_0.05 --kpt-label
-
-step 3
-change the sigma to 0.01
+L1 smooth loss
 change hyp.scratch.yaml to hyp.finetune.yaml and update:
 lr0: 0.001
 lrf: 0.01
@@ -23,10 +18,10 @@ box: 0.10
 kpt: 0.02
 cls: 0.5
 comment and uncomment lines in loss.py and test.py
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_960_sigma_0.05/weights/best.p --hyp data/hyp.finetune.yaml --img-size 960 --batch-size 16 --epochs 100 --name step3_960_sigma_0.01 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step1_960_oks_sigma_0.1/weights/best.pt --hyp data/hyp.finetune.yaml --img-size 960 --batch-size 16 --epochs 50 --name step2_960_L1 --kpt-label
 
-For 640 use step 3 of 960 and repeat
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step3_960_sigma_0.01/weights/best.p --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 100 --name step3_640_sigma_0.01 --kpt-label
+For 640 use step 2 of 960 and repeat
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_960_L1/weights/best.pt --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 100 --name step2_640_L1 --kpt-label
 
 Changes to loss in step 3
 =========================

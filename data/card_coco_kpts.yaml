@@ -8,6 +8,6 @@ kpt_shape: [4, 3]
 
 # Required for xtcocotools evaluation in test.py
 nkpt: 4
-sigmas: [0.5, 0.5, 0.5, 0.5] 
+sigmas: [0.1, 0.1, 0.1, 0.1] 
 flip_index: [1, 0, 3, 2] 
 val_json: ../crop-dataset-eitan-yolo/annotations/val.json

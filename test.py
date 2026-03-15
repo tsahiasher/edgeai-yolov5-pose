@@ -110,7 +110,7 @@ def test(data,
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
-    # uncomment in step 3
+    # uncomment in step 2
     # mpe_list = []
     jdict_kpt = [] if kpt_label else None
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
@@ -236,7 +236,7 @@ def test(data,
                 if kpt_label:
                     tkpt = labels[:, 5:]
                     scale_coords(img[si].shape[1:], tkpt, shapes[si][0], shapes[si][1], kpt_label=kpt_label)  # native-space labels
-                    # uncomment in step 3
+                    # uncomment in step 2
                     # if len(predn):
                         # iou = box_iou(tbox, predn[:, :4])
                         # best_ious, best_preds = iou.max(1)
@@ -304,7 +304,7 @@ def test(data,
     pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
 
-    # uncomment in step 3
+    # uncomment in step 2
     # epoch_mpe = np.mean(mpe_list) if len(mpe_list) else 0.0
     # print(f"Mean Pixel Error (MPE): {epoch_mpe:.2f} pixels")
     
