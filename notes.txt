@@ -12,7 +12,7 @@ python train.py --data data/card_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml 
 
 step 2
 change sigmas in loss.py to torch.tensor([0.05, 0.05, 0.05, 0.05]
-and in data/card_coco_kpts.yaml to sigmas: [0.5, 0.5, 0.5, 0.5]
+and in data/card_coco_kpts.yaml to sigmas: [0.05, 0.05, 0.05, 0.05]
 python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step1_960_sigma_0.5/weights/best.pt --hyp data/hyp.scratch.yaml --img-size 960 --batch-size 16 --epochs 100 --name step2_960_sigma_0.05 --kpt-label
 
 step 3
