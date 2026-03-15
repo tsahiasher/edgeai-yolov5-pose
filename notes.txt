@@ -12,16 +12,16 @@ python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.
 step 2
 L1 smooth loss
 change hyp.scratch.yaml to hyp.finetune.yaml and update:
-lr0: 0.001
-lrf: 0.01
-box: 0.10
-kpt: 0.02
+lr0: 0.0001
+lrf: 0.1
+box: 0.05
+kpt: 0.2
 cls: 0.5
 comment and uncomment lines in loss.py and test.py
 python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step1_960_oks_sigma_0.1/weights/best.pt --hyp data/hyp.finetune.yaml --img-size 960 --batch-size 16 --epochs 50 --name step2_960_L1 --kpt-label
 
 For 640 use step 2 of 960 and repeat
-python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_960_L1/weights/best.pt --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 100 --name step2_640_L1 --kpt-label
+python train.py --data data/card_coco_kpts.yaml --cfg models/hub/yolov5s6_4kpts.yaml --weights runs/train/step2_960_L1/weights/best.pt --hyp data/hyp.finetune.yaml --img-size 640 --batch-size 48 --epochs 50 --name step2_640_L1 --kpt-label
 
 Changes to loss in step 3
 =========================
@@ -36,6 +36,7 @@ http://software-dl.ti.com/jacinto7/esd/modelzoo/gplv3/08_02_00_11/edgeai-yolov5/
 
 Export to torch script
 ======================
-python ./models/export.py --weights runs/train/exp/weights/best.pt --img 960/640
+python .\models\export.py --weights runs\train\exp\weights\best.pt --img 960/640
 
-output is in runs/train/exp/weights/best.torchscript.pt
+output is in runs\train\exp\weights\best.torchscript.pt
+
