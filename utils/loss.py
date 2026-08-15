@@ -157,7 +157,6 @@ class ComputeLoss:
                     # lkpt += ((loss_x + loss_y) * kpt_mask).mean()
                     
                     # L1 loss
-                    # lkpt += ((loss_x + loss_y) * kpt_mask).mean()
                     # dx = torch.abs(pkpt_x - tkpt[i][:, 0::2])
                     # dy = torch.abs(pkpt_y - tkpt[i][:, 1::2])
                     # lkpt += ((dx + dy) * kpt_mask).mean()
